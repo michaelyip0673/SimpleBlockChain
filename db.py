@@ -19,7 +19,7 @@ class Block(Base):
     index = Column(Integer, primary_key=True)
     timestamp = Column(String(50), nullable=False)
     proof = Column(Integer, nullable=False)
-    previous_hash = Column(String(200), nullable=False)
+    previous_Hash = Column(String(200), nullable=False)
 
 
 class Operator(object):
@@ -27,12 +27,12 @@ class Operator(object):
         self.session = Session()
 
     def add_one(self, index: int, timestamp: str,
-                proof: int, previous_hash: str):
+                proof: int, previous_Hash: str):
         new_obj = Block(
             index=index,
             timestamp=str(timestamp),
             proof=proof,
-            previous_hash=previous_hash
+            previous_Hash=previous_Hash
         )
         self.session.add(new_obj)
         self.session.commit()

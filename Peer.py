@@ -147,6 +147,7 @@ def mine():
     operator.add_one(block.index, block.timestamp,
                      block.proof, block.previous_Hash)
 
+
     response = {
         "message": "新的区块形成了",
         "index": block.index,
@@ -155,6 +156,7 @@ def mine():
         "proof": block.proof,
         "previous_Hash": block.previous_Hash
     }
+
     return jsonify(response), 200
 
 
