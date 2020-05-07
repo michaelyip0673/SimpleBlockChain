@@ -2,6 +2,8 @@
 # @Author  : ZHAO Zhipeng
 # @FileName: db.py
 # coding:utf-8
+import datetime
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String
@@ -19,7 +21,7 @@ class Block(Base):
     index = Column(Integer, primary_key=True)
     timestamp = Column(String(50), nullable=False)
     proof = Column(Integer, nullable=False)
-    previous_hash = Column(String(200), nullable=False)
+    previous_Hash = Column(String(200), nullable=False)
 
 
 class Operator(object):
@@ -27,12 +29,12 @@ class Operator(object):
         self.session = Session()
 
     def add_one(self, index: int, timestamp: str,
-                proof: int, previous_hash: str):
+                proof: int, previous_Hash: str):
         new_obj = Block(
             index=index,
             timestamp=str(timestamp),
             proof=proof,
-            previous_hash=previous_hash
+            previous_Hash=previous_Hash
         )
         self.session.add(new_obj)
         self.session.commit()
@@ -44,6 +46,6 @@ def init_db():
 
 if __name__ == '__main__':
     # init_db()
-    operator = Operator()
+    print(datetime.datetime.now())
+    print(type(str(datetime.datetime.now())))
 
-    operator.add_one(1, '202020020', 12, '23232')

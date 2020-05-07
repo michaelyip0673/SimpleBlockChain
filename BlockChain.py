@@ -2,7 +2,7 @@ import hashlib
 import json
 from Block import Block
 from time import time
-
+import datetime
 from Transaction import Transaction
 
 """
@@ -29,7 +29,7 @@ class BlockChain:
         """
         index = len(self.chain) + 1
         hashValue = previusHash or self.hash(self.chain[-1])
-        block = Block(index, time(),
+        block = Block(index, str(datetime.datetime.now()),
                       self.transactions,
                       proof, hashValue
                       )
