@@ -2,6 +2,8 @@
 # @Author  : ZHAO Zhipeng
 # @FileName: db.py
 # coding:utf-8
+import datetime
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String
@@ -44,6 +46,6 @@ def init_db():
 
 if __name__ == '__main__':
     # init_db()
-    operator = Operator()
+    print(datetime.datetime.now())
+    print(type(str(datetime.datetime.now())))
 
-    operator.add_one(1, '202020020', 12, '23232')

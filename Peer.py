@@ -28,6 +28,7 @@ class Peer:
         :return: 无
         """
         self.neighbours.append(neighbour)
+        print(self.neighbours[0])
 
     def validChain(self, chain) -> bool:
         """
@@ -147,6 +148,7 @@ def mine():
     operator.add_one(block.index, block.timestamp,
                      block.proof, block.previous_Hash)
 
+    requests.get(f'http://127.0.0.1:{peer.neighbours[0]}/consensus')
 
     response = {
         "message": "新的区块形成了",
