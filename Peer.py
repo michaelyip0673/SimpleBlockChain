@@ -138,14 +138,17 @@ def mine():
     last_proof = last_block.proof
     proof = peer.blockchain.proofWork(last_proof)
 
+
     # 挖矿奖励：
     peer.blockchain.addTransaction(sender="区块链系统", receiver=f'http://127.0.0.1:{peer.address}', amount=1)
 
-    block = peer.blockchain.createBlock(None, proof)
+    block = peer.blockchain.createBlock(proof)
 
     operator = Operator()
-    operator.add_one(block.index, block.timestamp,
-                     block.proof, block.previous_Hash)
+    operator.add_one(block.index, block.timestamp, block.proof, block.previous_hash)
+
+
+    requests.get(f'http://127.0.0.1:{peer.neighbours[0]}/consensus')
 
     response = {
         "message": "新的区块形成了",
@@ -153,7 +156,7 @@ def mine():
         "transactions": [t.toJsonStr()
                          for t in block.transactions],
         "proof": block.proof,
-        "previous_Hash": block.previous_Hash
+        "previous_Hash": block.previous_hash
     }
     return jsonify(response), 200
 
@@ -202,4 +205,4 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--port", default=5000, type=int, help="监听的端口")
     port = parser.parse_args().port
     peer.setAddress(port)
-    app.run(host='127.0.0.1', port=port)
+    app.run(host='127.0.0.1', port=port, debug=True)

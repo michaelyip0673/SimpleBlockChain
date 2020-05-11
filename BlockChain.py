@@ -12,7 +12,7 @@ from Transaction import Transaction
 
 
 class BlockChain:
-    publicBlock = Block(0, 100000000.00000001, [], 520, "创世区块无前面的哈希")
+    publicBlock = Block(1, 100000000.00000001, [], 520, "创世区块无前面的哈希")
 
     def __init__(self):
         self.transactions = []
@@ -20,7 +20,7 @@ class BlockChain:
         self.chain.append(BlockChain.publicBlock)
         # self.createBlock(previusHash="111",proof=100)
 
-    def createBlock(self, previusHash: str, proof: int):
+    def createBlock(self, proof: int):
         """
         创造新的区块
         :param previusHash:上一个区块的哈希值
@@ -28,7 +28,7 @@ class BlockChain:
         :return: 返回新的区块
         """
         index = len(self.chain) + 1
-        hashValue = previusHash or self.hash(self.chain[-1])
+        hashValue = self.hash(self.chain[len(self.chain)-1])
         block = Block(index, time(),
                       self.transactions,
                       proof, hashValue

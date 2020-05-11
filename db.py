@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker
 import json
 from typing import *
 
-engine = create_engine('mysql://root:12345@localhost:3306/blockchain')
+engine = create_engine('mysql+mysqlconnector://root:yyl88325000@localhost:3306/blockchain')
 Base = declarative_base()
 Session = sessionmaker(bind=engine)
 
@@ -42,8 +42,3 @@ def init_db():
     Base.metadata.create_all(engine)
 
 
-if __name__ == '__main__':
-    # init_db()
-    operator = Operator()
-
-    operator.add_one(1, '202020020', 12, '23232')
