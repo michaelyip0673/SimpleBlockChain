@@ -8,6 +8,9 @@ from Block import Block
 from BlockChain import BlockChain
 from Transaction import Transaction
 from db import Operator
+from redis_conn import redis_conn_pool
+
+r = redis_conn_pool()
 
 
 class Peer:
@@ -52,17 +55,13 @@ class Peer:
         return True
 
     def resolveConflicts(self) -> bool:
-        """
-        实现共识算法：
-        使用网络中最长的链作为最终链
-        :return:  如果节点的链被取代，则返回True，否则返回False
-        """
+
         newChain = None
-        # 寻找比自己长的链，比自己短的链不去管它，这由共识算法决定
+        # Find the longest chain in terms of the consensus algorithm
         maxLen = len(self.blockchain.chain)
-        # 遍历所有的邻居节点，判断邻居节点的链和自己的异同
-        # 如果邻居节点的链比自己的长，并且链是合法的，将这条链暂存起来作为最终
-        # 候选链，遍历结束后得到的候选链就是节点网络中 最长的一个链
+        # Traverse all neighbor nodes, determine the similarities and differences between the neighbor node chain and its own
+        # If the neighbor node's chain is longer than its own, and the chain is legal, temporarily store this chain as the final
+        # Select the longest chain
 
         for node in self.neighbours:
             response = requests.get(
@@ -79,7 +78,7 @@ class Peer:
                 transactions = []
                 transet = temp['transactions']
                 for t in transet:
-                    transactions.append(Transaction(t['sender'], t['receiver'], int(t['amount'])));
+                    transactions.append(Transaction(t['sender'], t['receiver'], float(t['amount'])));
                 self.blockchain.chain.append(
                     Block(temp['index'], temp['timestamp'], transactions, temp['proof'], temp['previous_Hash'])
                 )
@@ -110,48 +109,74 @@ def getChian():
 
 @app.route('/transaction/new', methods=['POST'])
 def addNewTransaction():
-    """
-    添加新的交易到当前节点的区块中
-    :return: 返回提示信息
-    """
-    # 检查提交的参数是不是完整，不完整返回错误:
-    sender = request.values.get("sender")
-    receiver = request.values.get("receiver")
-    amount = request.values.get("amount")
+
+    # Check if the parameter is complete:
+    sender = int(request.values.get("sender"))
+    receiver = int(request.values.get("receiver"))
+    amount = float(request.values.get("amount"))
     if sender == None or receiver == None or amount == None:
-        return "您发送的请求参数不完整，无法操作", 400
-    index = peer.blockchain.addTransaction(sender, receiver, int(amount))
-    response = {
-        "服务器消息": "添加成功",
-        "所在区块索引": index
-    }
-    return jsonify(response), 201
+        return "Not enough parameters", 400
+
+    # Check if the sender and the receiver are the same person
+    if sender == receiver:
+        return "The sender and the receiver are the same guys, transaction fails ", 400
+
+    # Check whether the sender and the receiver are on the node lists.
+    if sender == peer.address or str(sender) in peer.neighbours and receiver == peer.address or str(receiver) in peer.neighbours:
+        # Node amount
+        sender_amount = float(r.get(sender))
+
+        # Check sender's amount
+        if sender_amount - amount < 0:
+            return "The sender has no enough money to withdraw", 400
+        else:
+            receiver_amount = float(r.get(receiver))
+
+            r.set(sender, sender_amount - amount)
+            r.set(receiver, receiver_amount + amount)
+
+            index = peer.blockchain.addTransaction(sender, receiver, amount)
+            response = {
+                "System response": "Add new transaction",
+                "Block index": index
+            }
+            return jsonify(response), 201
+
+    else:
+        return "Some of the nodes are not in this network, transaction fails", 400
+
+
 
 
 @app.route("/mine", methods=['GET'])
 def mine():
-    """
-    挖矿产生新的区块：
-    :return: 返回http response
-    """
+
+    # Last block's content
     last_block = peer.blockchain.lastBlock()
     last_proof = last_block.proof
     proof = peer.blockchain.proofWork(last_proof)
 
 
-    # 挖矿奖励：
-    peer.blockchain.addTransaction(sender="区块链系统", receiver=f'http://127.0.0.1:{peer.address}', amount=1)
+    # Mine reward：
+    peer.blockchain.addTransaction(sender="Blockchain system", receiver=f'http://127.0.0.1:{peer.address}', amount=50)
 
+    # Create a new block
     block = peer.blockchain.createBlock(proof)
 
     operator = Operator()
     operator.add_one(block.index, block.timestamp, block.proof, block.previous_hash)
 
+    # Consensus
+    for neighbour in peer.neighbours:
+        requests.get(f'http://127.0.0.1:{neighbour}/consensus')
 
-    requests.get(f'http://127.0.0.1:{peer.neighbours[0]}/consensus')
+    # Node amount + 50
+    amount = float(r.get(peer.address))
+    r.set(peer.address,amount+50)
+
 
     response = {
-        "message": "新的区块形成了",
+        "message": "New block created",
         "index": block.index,
         "transactions": [t.toJsonStr()
                          for t in block.transactions],
@@ -171,12 +196,13 @@ def addNeighbour():
     print(node)
     print("------------")
     if node == None:
-        return "您的请求缺少参数，无法处理", 400
+        return "Lack of parameter", 400
     peer.addNeighbour(node)
+    print(peer.neighbours)
     response = {
-        "服务器返回信息": "添加peer邻居成功！",
-        "节点地址": peer.address,
-        "邻居节点数量": len(peer.neighbours)
+        "System response": "Successfully add a new neighbour",
+        "Node address": peer.address,
+        "Number of neighbour nodes": len(peer.neighbours)
     }
     return jsonify(response), 200
 
@@ -186,16 +212,39 @@ def consensus():
     replaced = peer.resolveConflicts()
     if replaced:
         response = {
-            "message": "链条被更新",
+            "message": "The chain has been updated",
             "length": len(peer.blockchain.chain)
         }
     else:
         response = {
-            "message": "保持链条不变",
+            "message": "The chain remains unchange",
             "length": len(peer.blockchain.chain)
         }
     return jsonify(response), 200
 
+# Check the amount of this current node
+@app.route("/amount", methods=['GET'])
+def amount():
+    amount = float(r.get(peer.address))
+    response = {
+        "Address": peer.address,
+        "Amount": amount,
+
+    }
+    return jsonify(response), 200
+
+# Check transactions that are not in the block
+@app.route("/transaction", methods=['GET'])
+def transaction():
+    if peer.blockchain.transactions is not None:
+        response = {
+            "Transaction": [t.toJsonStr() for t in peer.blockchain.transactions]
+        }
+    else:
+        response = {
+            "Transaction": None
+        }
+    return jsonify(response), 200
 
 if __name__ == '__main__':
     """
@@ -205,4 +254,5 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--port", default=5000, type=int, help="监听的端口")
     port = parser.parse_args().port
     peer.setAddress(port)
+    r.set(peer.address, 0)
     app.run(host='127.0.0.1', port=port, debug=True)

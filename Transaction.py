@@ -8,7 +8,7 @@ class Transaction:
     包括交易发送人，交易接受人，交易数量信息
     """
 
-    def __init__(self, sender: str, receiver: str, amount: int):
+    def __init__(self, sender: int, receiver: int, amount: float):
         self.sender = sender
         self.receiver = receiver
         self.amount = amount

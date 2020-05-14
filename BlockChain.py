@@ -12,7 +12,7 @@ from Transaction import Transaction
 
 
 class BlockChain:
-    publicBlock = Block(1, 100000000.00000001, [], 520, "创世区块无前面的哈希")
+    publicBlock = Block(1, 100000000.00000001, [], 520, "No previous hash value")
 
     def __init__(self):
         self.transactions = []
@@ -21,25 +21,19 @@ class BlockChain:
         # self.createBlock(previusHash="111",proof=100)
 
     def createBlock(self, proof: int):
-        """
-        创造新的区块
-        :param previusHash:上一个区块的哈希值
-        :param proof: 工作量证明
-        :return: 返回新的区块
-        """
         index = len(self.chain) + 1
         hashValue = self.hash(self.chain[len(self.chain)-1])
         block = Block(index, time(),
                       self.transactions,
                       proof, hashValue
                       )
-        # 生成新块之后要新建一个存放交易的列表用于存放新交易
+        # Set to null when all the transactions has been patched
         self.transactions = []
-        # 将新生成的区块加入到区块链中
+        # Add this new block to the chain
         self.chain.append(block)
         return block
 
-    def addTransaction(self, sender: str, receiver: str, amount: int) -> int:
+    def addTransaction(self, sender: int, receiver: int, amount: float) -> int:
         """
         生成新的交易信息，将信息加入到待挖区块中
         :param sender: 交易的发送方
