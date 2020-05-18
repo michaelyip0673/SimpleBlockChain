@@ -85,6 +85,16 @@ class Peer:
             return True
         return False
 
+    def synctransaction(self):
+        # Synchronize transactions from each node
+        temp_transaction = None
+        for node in self.neighbours:
+            responce = requests.get(f'http://localhost:{node}/transaction')
+            if responce.status_code == 200:
+                temp_transaction = responce.json()['Transaction']
+                for temp in temp_transaction:
+                    self.blockchain.transactions.append(Transaction(temp['sender'], temp['receiver'], float(temp['amount'])))
+                print("Node: ", node, "has been synchronize")
 
 peer = Peer()
 app = Flask(__name__)
@@ -156,6 +166,8 @@ def mine():
     last_proof = last_block.proof
     proof = peer.blockchain.proofWork(last_proof)
 
+    # Synchorinize transactions from each node
+    peer.synctransaction()
 
     # Mine reward：
     peer.blockchain.addTransaction(sender="Blockchain system", receiver=f'http://127.0.0.1:{peer.address}', amount=50)
@@ -240,11 +252,12 @@ def transaction():
         response = {
             "Transaction": [t.toJsonStr() for t in peer.blockchain.transactions]
         }
+        return jsonify(response), 200
     else:
         response = {
             "Transaction": None
         }
-    return jsonify(response), 200
+        return jsonify(response), 400
 
 if __name__ == '__main__':
     """
