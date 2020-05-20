@@ -3,11 +3,9 @@ import json
 from Block import Block
 from time import time
 
-from Transaction import Transaction
 
 """
-区块链的简单实现类
-完成了区块链的简单操作
+Simple execution of blockchain
 """
 
 
@@ -32,15 +30,10 @@ class BlockChain:
         self.chain.append(block)
         return block
 
-    def addTransaction(self, sender: int, receiver: int, amount: float) -> int:
+    def addTransaction(self, newTransaction) -> int:
         """
-        生成新的交易信息，将信息加入到待挖区块中
-        :param sender: 交易的发送方
-        :param receiver: 交易的接受方
-        :param amount: 交易数量
-        :return: 返回的是交易要插入的区块的index
+        Put new transaction into the transaction list
         """
-        newTransaction = Transaction(sender, receiver, amount)
         self.transactions.append(newTransaction)
         return self.lastBlock().index + 1
 

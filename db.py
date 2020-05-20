@@ -20,6 +20,7 @@ class Block(Base):
     timestamp = Column(String(50), nullable=False)
     proof = Column(Integer, nullable=False)
     previous_hash = Column(String(200), nullable=False)
+    transactions = Column(String(2000), nullable=False)
 
 
 class Operator(object):
@@ -27,12 +28,14 @@ class Operator(object):
         self.session = Session()
 
     def add_one(self, index: int, timestamp: str,
-                proof: int, previous_hash: str):
+                proof: int, previous_hash: str, transactions):
+        transactions_str = ''.join(str(i) for i in transactions)
         new_obj = Block(
             index=index,
             timestamp=str(timestamp),
             proof=proof,
-            previous_hash=previous_hash
+            previous_hash=previous_hash,
+            transactions=transactions_str
         )
         self.session.add(new_obj)
         self.session.commit()
@@ -40,5 +43,8 @@ class Operator(object):
 
 def init_db():
     Base.metadata.create_all(engine)
+
+if __name__ == '__main__':
+    init_db()
 
 

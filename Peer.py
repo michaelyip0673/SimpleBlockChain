@@ -6,10 +6,8 @@ from flask import Flask, jsonify, request
 
 from Block import Block
 from BlockChain import BlockChain
-from Transaction import Transaction
 from db import Operator
 from redis_conn import redis_conn_pool
-from ecdsa import SigningKey
 from wallet import Wallet
 from Transaction2 import Transaction2
 
@@ -19,9 +17,9 @@ r = redis_conn_pool()
 
 class Peer:
     def __init__(self):
-        # 初始化这个节点的链
+
         self.blockchain = BlockChain()
-        # 初始化这个节点的邻居节点
+
         self.neighbours = []
         self.address = 0
         self.pub_key_list = {}
@@ -38,9 +36,7 @@ class Peer:
 
     def addNeighbour(self, neighbour):
         """
-        给这个节点添加一个邻居
-        :param neighbour: 这个邻居的地址信息：http:127.0.0.1:5001
-        :return: 无
+        Add a new neighbour
         """
         self.neighbours.append(neighbour)
 
@@ -90,23 +86,12 @@ class Peer:
                 transactions = []
                 transet = temp['transactions']
                 for t in transet:
-                    transactions.append(Transaction(t['sender'], t['receiver'], float(t['amount'])));
+                    transactions.append(Transaction2(t['index'], t['address'], t['amount'], t['Previous_transaction_ID'], t['Previous index'], t['Signature'], t['Transaction_ID']))
                 self.blockchain.chain.append(
                     Block(temp['index'], temp['timestamp'], transactions, temp['proof'], temp['previous_Hash'])
                 )
             return True
         return False
-
-    def synctransaction(self):
-        # Synchronize transactions from each node
-        temp_transaction = None
-        for node in self.neighbours:
-            responce = requests.get(f'http://localhost:{node}/transaction')
-            if responce.status_code == 200:
-                temp_transaction = responce.json()['Transaction']
-                for temp in temp_transaction:
-                    self.blockchain.transactions.append(Transaction(temp['sender'], temp['receiver'], float(temp['amount'])))
-                print("Node: ", node, "has been synchronize")
 
 peer = Peer()
 app = Flask(__name__)
@@ -115,8 +100,7 @@ app = Flask(__name__)
 @app.route("/chain", methods=['GET'])
 def getChian():
     """
-    获取该节点区块链上的所有区块的信息
-    :return: 返回区块的信息和请求状态码
+    Retrieve information from the chain
     """
     temp = peer.blockchain.chain
     json_chain = []
@@ -159,19 +143,35 @@ def addNewTransaction():
                     if temp_transaction.amount >= amount:
                         print("Excute transaction")
                         find_transaction = True
+                        # Send amount to the receiver and the left is sent to the sender
                         send_amount = amount
                         left_amount = temp_transaction.amount - amount
+
+                        # Generate 2 new block
+                        # One output is the receiver
+                        # And the other one is the input
+                        sender_pubkey = peer.pub_key_list[sender]
+                        receiver_pubkey = peer.pub_key_list[receiver]
                         pre_transaction_ID = temp_transaction.transaction_ID
                         pre_index = temp_transaction.index
                         transaction_index = pre_index + 1
-                        send_receiver_transaction = Transaction2(index=transaction_index, address=str(receiver), amount=send_amount, pre_transaction_ID=pre_transaction_ID, pre_index=pre_index, signature=None)
-                        send_self_transaction = Transaction2(index=transaction_index, address=str(sender), amount=left_amount, pre_transaction_ID=pre_transaction_ID, pre_index=pre_index, signature=None)
+                        send_receiver_transaction = Transaction2(index=transaction_index, address=receiver_pubkey, amount=send_amount, pre_transaction_ID=pre_transaction_ID, pre_index=pre_index, signature=None, transaction_ID=None)
+                        send_self_transaction = Transaction2(index=transaction_index, address=sender_pubkey, amount=left_amount, pre_transaction_ID=pre_transaction_ID, pre_index=pre_index, signature=None, transaction_ID=None)
                         send_receiver_transaction.normaltransaction_ID()
                         send_self_transaction.normaltransaction_ID()
                         sender_peer_wallet.replaceUTXOs(index=index, utxo=send_self_transaction)
+                        peer.blockchain.addTransaction(send_self_transaction)
+
+                        # Node amount
+                        sender_amount = float(r.get(sender))
+                        receiver_amount = float(r.get(receiver))
+                        r.set(sender, sender_amount - amount)
+                        r.set(receiver, receiver_amount + amount)
+
                         if receiver in peer.wallet:
                             receiver_peer_wallet: Wallet = peer.wallet[receiver]
                             receiver_peer_wallet.addUTXOs(send_receiver_transaction)
+                            peer.blockchain.addTransaction(send_receiver_transaction)
                     else:
                         index = index + 1
             response = {
@@ -182,46 +182,6 @@ def addNewTransaction():
         else:
             return "Some of the nodes are not in this network, transaction fails", 400
 
-@app.route('/transaction/newform', methods=['POST'])
-def addNewTransaction2():
-    if int(peer.address) !=5000:
-        return "Only default node 5000 supports transaction function",400
-    else:
-        # Check if the parameter is complete:
-        sender = int(request.values.get("sender"))
-        receiver = int(request.values.get("receiver"))
-        amount = float(request.values.get("amount"))
-        if sender == None or receiver == None or amount == None:
-            return "Not enough parameters", 400
-
-        # Check whether the sender and the receiver are on the node lists.
-        if sender == peer.address or str(sender) in peer.neighbours and receiver == peer.address or str(
-                receiver) in peer.neighbours:
-            # Node amount
-            sender_amount = float(r.get(sender))
-
-            # Check sender's amount
-            if sender_amount - amount < 0:
-                return "The sender has no enough money to withdraw", 400
-            else:
-                receiver_amount = float(r.get(receiver))
-
-                r.set(sender, sender_amount - amount)
-                r.set(receiver, receiver_amount + amount)
-
-                index = peer.blockchain.addTransaction(sender, receiver, amount)
-                response = {
-                    "System response": "Add new transaction",
-                    "Block index": index
-                }
-                return jsonify(response), 201
-
-        else:
-            return "Some of the nodes are not in this network, transaction fails", 400
-
-
-
-
 
 @app.route("/mine", methods=['GET'])
 def mine():
@@ -231,13 +191,11 @@ def mine():
     last_proof = last_block.proof
     proof = peer.blockchain.proofWork(last_proof)
 
-    # Synchorinize transactions from each node
-    peer.synctransaction()
-
     # Mine reward：
-    peer.blockchain.addTransaction(sender="Blockchain system", receiver=f'http://127.0.0.1:{peer.address}', amount=50)
-    mine_transaction = Transaction2(index=1, address=peer.address, amount=50, pre_transaction_ID=None, pre_index=None, signature=None)
+    receiver_pubkey = peer.pub_key_list[peer.address]
+    mine_transaction = Transaction2(index=1, address=receiver_pubkey, amount=50, pre_transaction_ID=None, pre_index=None, signature=None, transaction_ID=None)
     mine_transaction.minetransaction_ID()
+    peer.blockchain.addTransaction(newTransaction=mine_transaction)
 
     # Create a new block, send last block's proof into the new block
     block = peer.blockchain.createBlock(proof)
@@ -249,8 +207,9 @@ def mine():
             each_transaction_object: Transaction2 = each_transaction
             print(each_transaction_object.toJsonStr())
 
+    # Store block in database
     operator = Operator()
-    operator.add_one(block.index, block.timestamp, block.proof, block.previous_hash)
+    operator.add_one(block.index, block.timestamp, block.proof, block.previous_hash, [t.toJsonStr()for t in block.transactions])
 
     # Consensus
     for neighbour in peer.neighbours:
@@ -275,8 +234,7 @@ def mine():
 @app.route("/neighbour/add", methods=['POST'])
 def addNeighbour():
     """
-    接受前端传过来的值，加入到自己的邻居节点中
-    :return: 返回响应的消息
+    Add a neighbour node
     """
     node = request.values.get("node")
     print(node)
@@ -290,7 +248,7 @@ def addNeighbour():
         response_data = pub_key_response.json()
         key = response_data['Address']
         value = response_data['Public key']
-        peer.addpubkey(key, value)
+        peer.addpubkey(int(key), value)
         peer.addwallet(int(key), Wallet(int(key)))
 
     for key in peer.pub_key_list:
@@ -372,10 +330,10 @@ def view_transaction():
 
 if __name__ == '__main__':
     """
-    实现区块链 p2p 网络，构造多个peer节点：
+    Create P2P network
     """
     parser = ArgumentParser()
-    parser.add_argument("-p", "--port", default=5000, type=int, help="监听的端口")
+    parser.add_argument("-p", "--port", default=5000, type=int, help="Monitor port")
     port = parser.parse_args().port
     peer.setAddress(port)
     wallet = Wallet(int(port))

@@ -4,16 +4,15 @@ import hashlib
 
 class Transaction2:
     """
-    存储交易信息的类
-    包括交易发送人，交易接受人，交易数量信息
+    Transaction information
     """
 
-    def __init__(self, index: int, address: str, amount: float, pre_transaction_ID: str, pre_index: str, signature: str ):
+    def __init__(self, index: int, address: str, amount: float, pre_transaction_ID: str, pre_index: str, signature: str, transaction_ID: str ):
         self.index = index
         self.address = address
         self.amount = amount
         self.pre_transaction_ID = pre_transaction_ID
-        self.transaction_ID = ""
+        self.transaction_ID = transaction_ID
         self.pre_index = pre_index
         self.signature = signature
 
