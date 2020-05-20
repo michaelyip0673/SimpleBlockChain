@@ -18,7 +18,6 @@ class BlockChain:
         self.transactions = []
         self.chain = []
         self.chain.append(BlockChain.publicBlock)
-        # self.createBlock(previusHash="111",proof=100)
 
     def createBlock(self, proof: int):
         index = len(self.chain) + 1
@@ -47,22 +46,15 @@ class BlockChain:
 
     def hash(self, block) -> str:
         """
-        生成区块的哈希
-        :param block: 区块
-        :return: 返回的是区块的哈希摘要字符串
+        Hash value of block
         """
         blockInfo = json.dumps(block.toJson(), sort_keys=True).encode()
         return hashlib.sha256(blockInfo).hexdigest()
 
     def proofWork(self, lastProof: int) -> int:
         """
-        工作量证明函数：
-        :param lastProof:上一个区块的工作量证明。
-        :return: 返回工作量证明的值
-        备注：工作量证明是一个非常无聊的事情，要求一个数字，这个数字
-        和上一个区块的工作量证明拼在一起得到的哈希值前面有若干个0,
-        0越多，这个数字就越难算，计算这个数字的唯一方法就是从0开始
-        遍历每一个数字计算。
+        :param lastProof: Last proof of POW
+        :return: Value of POW
         """
         proof = 0
         while not self.validProof(lastProof, proof):
@@ -72,11 +64,10 @@ class BlockChain:
     @staticmethod
     def validProof(lastproof: int, proof: int) -> bool:
         """
-        验证哈希值是不是满足要求，作为演示需要，这里认为哈希值前面
-        有4个0就合格
-        :param lastproof:上一个区块的工作量证明
-        :param proof: 测试的工作量证明
-        :return: 测试的工作量证明是不是满足要求
+        Verify if the first four bits of hash value are all 0
+        :param lastproof: POW of last block
+        :param proof: POW of test
+        :return: Verify if POW here meets the requirement
         """
         test = f'{lastproof}{proof}'.encode()
         hashStr = hashlib.sha256(test).hexdigest()
@@ -84,9 +75,7 @@ class BlockChain:
 
     def lastBlock(self):
         """
-        得到节点区块链的最后一个区块
-        :return: 如果当前节点没有区块，返回None
-        如果有则返回最后一个区块
+        Retrieve last chain on the blockchain
         """
         try:
             obj = self.chain[-1]
